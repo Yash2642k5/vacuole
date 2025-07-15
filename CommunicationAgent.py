@@ -15,6 +15,7 @@ from langchain.chains import LLMChain
 from agent import browse
 import asyncio
 
+load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SECOND_GEMINI_API_KEY = os.getenv("SECOND_GEMINI_API_KEY")
@@ -42,7 +43,7 @@ llm = ChatGroq(
 )
 # Instantiate Gemini model with config
 llm2 = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",  # latest identifier
+    model="gemini-2.5-pro",  # latest identifier
     google_api_key= API_KEY,
     temperature=0.7,
     max_tokens=1024,
@@ -104,14 +105,12 @@ def get_response(state: OverallState) -> OverallState:
     input_prompt = f"""
     You are Vacuole, a friendly and knowledge-able ecommerce assistant specialized in helping users discover, compare, and understand products available online, especially budget-friendly options in India. 
     Communicate clearly and concisely using everyday language. Your expertise covers categories including fashion, electronics, home goods, and deals.
-
-    When interacting with users, provide helpful product suggestions and answer their questions politely and informatively. 
-    If you don't know an answer or lack real-time information, courteously advise users to search online. Avoid giving any financial or medical advice. 
+    When interacting with users, provide helpful product suggestions and answer their questions politely and informatively.
+    
     Use emojis sparingly to make your responses more engaging without overwhelming the message. Always maintain a factual tone and avoid sharing personal opinions.
-
+    
     # Response Guidelines
     - Be friendly, clear, and concise.
-    - Focus on budget-friendly options in India.
     - Cover fashion, electronics, home goods, and deals.
     - Use simple, everyday language.
     - Avoid providing financial or medical advice.
@@ -140,16 +139,14 @@ def get_response(state: OverallState) -> OverallState:
 
     Provide the output as a concise list for every product and take no more than 100 words for a product and for each product on the list show:
     - product information, include the product's link, description, price, or relevant details.
-
-    # Notes
-
-    - Keep the summary factual, objective, and clear.
-    - Do not include irrelevant details or speculation.
-    - Preserve any precise data provided about products.
-
     """
     response = llm2.invoke(input_prompt)
     state['graph_output'] = response.content
+    print("..................................................")
+    print("respone is: ", response)
+    print("..................................................")
+    print("graph_output is: ", state["graph_output"])
+    print("..................................................")
     # print("in the get_response node of the graph the final updates are ....................")
     # print(state)
     # print("..................................................")
@@ -174,12 +171,15 @@ def askAi(state: OverallState) -> OverallState:
 # to decide what to do next based on user input
 def decidingAgent(state: OverallState) -> str:
     # if the user input contains any thing releted to the browser then only we will make call to browse function
+    # print("..................................................")
+    # print("Latest state user_input", state['user_input'][-1])
+    # print("..................................................")
     comptlete_input = f"""
         You are a helpful prompt engineer. Given a user query, determine the user's intent in a structured format.
         what is user intent 
         1. if the user wants to search something or purchase something or anything which requires the browser to answer then return browser
         2. otherwise return the genral.
-        user input is {state['user_input']}
+        user input is {state['user_input'][-1]}
         Answer only a single word either browser or general.
         not more than one word.
     """
