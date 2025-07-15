@@ -36,9 +36,10 @@ async def help_command (update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 from CommunicationAgent import Communication
 from langchain_core.messages import HumanMessage,AIMessage
-conversation_history = []
+from collections import defaultdict
+conversation_history = defaultdict(list)
 import asyncio
-def handle_response (text: str) -> str:
+def handle_response (text: str, user_id:str) -> str:
     """handle responses
 
     Args:
@@ -48,9 +49,10 @@ def handle_response (text: str) -> str:
         str: _description_
     """
     # response = askAi(text)
-    # conversation_history.append(HumanMessage(content=text))
-    response = asyncio.run(Communication(text))
-    # conversation_history.append(AIMessage(content=response))
+    conversation_history[user_id].append(HumanMessage(content=text))
+    response = asyncio.run(Communication(conversation_history[user_id]))
+    conversation_history[user_id].append(AIMessage(content=response))
+    # response = "Hello my name is vacuole and i am here for your help .........."
     # print('Our Response: ', response)
     return response
 
@@ -64,19 +66,22 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     message_type: str = update.message.chat.type
     text: str = update.message.text
+    user_id: str = update.effective_user.id 
+    # username: str = update.effective_user.username
     
     print(f'user ({update.message.chat.id}) in {message_type}: "{text}"')
+    print("in the handle_message function =>",user_id)
     
     if message_type == 'group':
         if TELEGRAM_BOT_USERNAME in text:
             new_text: str = text.replace(TELEGRAM_BOT_USERNAME, '').strip()
             # conversation_history.append(new_text)
-            response: str = handle_response(new_text)
+            response: str = handle_response(new_text,user_id)
             # conversation_history.append(response)
         else:
             return
     else:
-        response: str = handle_response(text)
+        response: str = handle_response(text,user_id)
     
     #print('Bot: ', response)
     

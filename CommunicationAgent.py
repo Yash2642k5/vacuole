@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 from typing import Annotated, Any
 from langgraph.graph.message import AnyMessage, add_messages
 from langgraph.graph import StateGraph,END
@@ -13,14 +15,20 @@ from langchain.chains import LLMChain
 from agent import browse
 import asyncio
 
-API_KEY = GaminiAPIKEy
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+SECOND_GEMINI_API_KEY = os.getenv("SECOND_GEMINI_API_KEY")
+API_KEY = os.getenv('GEMINI_API_KEY')
 
 from typing import Literal, Union,List,TypedDict
 from pydantic import BaseModel,Field
 
 class OverallState(TypedDict):
-    user_input:List[Union[HumanMessage,AIMessage]]
+    user_input: Union[HumanMessage, AIMessage]
     graph_output:str
+    askAi_output: str
+    browser_input: Union[str, List[str]]
+    browser_output: str
 
 
 llm = ChatGroq(
@@ -30,7 +38,7 @@ llm = ChatGroq(
     reasoning_format="parsed",
     timeout=None,
     max_retries=2,
-    api_key=GroqAPiKEY,
+    api_key=GROQ_API_KEY,
 )
 # Instantiate Gemini model with config
 llm2 = ChatGoogleGenerativeAI(
@@ -42,61 +50,124 @@ llm2 = ChatGoogleGenerativeAI(
 llm3 = ChatGroq(
     model = "gemma2-9b-it",
     temperature=0,
-    api_key=GroqAPiKEY
+    api_key=GROQ_API_KEY
 )
 
 # for making the prompt or deciding the node what we have to do next either browser or Bypass browser
 def get_messages(state: OverallState) -> OverallState:
-    prompt = f"""
-        You are a helpful prompt engineer. Given a user query, determine the user's intent in a structured format.
+    input_prompt = f"""
+        Identify the user's intent based on the given query in a structured format, and 
+        
+        Very important thing is that, dont forget to mention your output that- give answer in text only, dont make any files to give answer and if make a bullet point list in text if required. avoid irrelevent data and focus on only giving what was asked and if website is not specified go to www.flipkart.com
 
-        1. If the user wants to purchase something:
-        - First, identify and output the website name.
-        - Then, list all relevant product details (e.g., product name, specifications, quantity, price if mentioned).
+        If the user intends to purchase a product:
+        - Extract and output the website name.
+        - List all relevant product details such as product name, specifications, quantity, and price if provided.
 
-        Avoid any extra commentary or explanation. Output only the necessary details to help an automated browser tool take action.
+        Provide the output concisely without any commentary or additional explanations. Only include details necessary to assist an automated browser tool in executing the purchase action.
+
+        # Steps
+        1. Analyze the user query to detect purchase intent if not mentioned then open Flipkart.
+        2. If purchase intent is confirmed, extract the website name.
+        3. Extract product details: product name, specifications, quantity, and price (if any).
+        4. Format the extracted information clearly and concisely.
+        5. if the user ask you to check any product availability then check the availability of the product on the website and if available then give the product details and if not available search for similar result which are available.
+
+        Omit any fields that are not mentioned in the query. If the user query does not indicate a purchase intent, respond with an empty JSON object:
+
+        # Examples
+        Input: "I want to buy the latest iPhone 14 on Apple.com, two units."
+        Output:
+        1. first search Flipkat.com
+        2. open flipkart.com
+        3. search for "iphone 14" in the search bar
+        4. click on the first product 
+        5. extact the product details 
+
+        Input: "Find me a gaming laptop with 16GB RAM and 1TB SSD on Amazon."
+        Output:
+        1. first Search Amazon.com
+        2. open Amazon.com
+        3. search for "gaming laptop with 16GB RAM and 1TB SSD" in the search bar
+        4. click on the first product 
+        5. extract the product details
+
         and User input is 
-        {state['user_input']}
+        {state['askAi_output']}
     """
-    messages = llm.invoke(prompt)
-    state['user-input'] = messages.content
+    messages = llm.invoke(input_prompt)
+    state['browser_input'] = messages.content
     return state
 
 
 def get_response(state: OverallState) -> OverallState:
-    prompt = f"""
-        You are a precise and helpful assistant.
+    input_prompt = f"""
+    You are Vacuole, a friendly and knowledge-able ecommerce assistant specialized in helping users discover, compare, and understand products available online, especially budget-friendly options in India. 
+    Communicate clearly and concisely using everyday language. Your expertise covers categories including fashion, electronics, home goods, and deals.
 
-        Given the following browser-use output from the user:
-        {state['graph_output']}
+    When interacting with users, provide helpful product suggestions and answer their questions politely and informatively. 
+    If you don't know an answer or lack real-time information, courteously advise users to search online. Avoid giving any financial or medical advice. 
+    Use emojis sparingly to make your responses more engaging without overwhelming the message. Always maintain a factual tone and avoid sharing personal opinions.
 
-        Provide a concise and clear response that summarizes the user's intent and the actions taken by the browser tool.
-        and also include if the browser use sends a  product - link and description,price or some relevent data include that 
-        in the response.
+    # Response Guidelines
+    - Be friendly, clear, and concise.
+    - Focus on budget-friendly options in India.
+    - Cover fashion, electronics, home goods, and deals.
+    - Use simple, everyday language.
+    - Avoid providing financial or medical advice.
+    - If uncertain or lacking information, politely recommend searching online.
+    - Use minimal emojis to enhance engagement.
+    - Stay factual and impartial.
+
+    # Output Format
+    Provide responses in natural, conversational text addressing the user's queries or requests following the above guidelines, with minimal and appropriate emoji use where suitable.
+
+
+    Given the following browser-use output from the user and don't mention that you are getting any input always talk like you are the one doing all the work in order to create an abstraction for the user:\n
+        {state['browser_output']}
+
+    Identify if the browser output includes details about a product, such as a product link, description, price, or any other relevant data.
+    Include that product information in the summary if available.
+
+    # Steps
+    - Understand the user's browsing activity and what they were looking for.
+    - Summarize the intent behind the browsing session.
+    - Identify actions the browser tool performed (searches done, pages visited, etc.).
+    - Detect any product-related information in the output (links, description, price).
+    - Summarize all findings into a clear, concise response.
+
+    # Output Format
+
+    Provide the output as a concise list for every product and take no more than 100 words for a product and for each product on the list show:
+    - product information, include the product's link, description, price, or relevant details.
+
+    # Notes
+
+    - Keep the summary factual, objective, and clear.
+    - Do not include irrelevant details or speculation.
+    - Preserve any precise data provided about products.
+
     """
-    response = llm.invoke(prompt)
+    response = llm2.invoke(input_prompt)
     state['graph_output'] = response.content
+    # print("in the get_response node of the graph the final updates are ....................")
+    # print(state)
+    # print("..................................................")
     return state
 
 
-
-#create prompt
-prompt = ChatPromptTemplate.from_messages([
-    ("system", """You are a friendly, knowledgeable ecommerce assistant named Sahayak. 
-            Your role is to help users discover, compare, and understand products available online, especially budget-friendly 
-            options in India. You speak clearly and concisely, using everyday language. Provide helpful suggestions and answer 
-            questions related to categories like fashion, electronics, home goods, and deals. Always guide users politely, and 
-            if you don't know something or lack real-time access, recommend searching online. Never give financial or medical advice. 
-            Use emojis sparingly to make responses more engaging. Stay factual and avoid personal opinions.
-     """),
-    ("human", "{input}")
-])
-chain = LLMChain(llm=llm2, prompt=prompt)
-# Async function to interact with Gemini using LangChain
-def askAi(state:OverallState) -> OverallState:
-    response = chain.invoke(input=state['user_input'])
-
-    state['user-input'] = response["text"]
+def askAi(state: OverallState) -> OverallState:
+    prompt = f"""
+        You are an intelligent assistant agent. Your task is to analyze the user's recent and past messages.
+        Based on the full chat history provided in: {state['user_input']}, regenerate the user's last question in a condensed form.
+        - Focus on **keywords** instead of full sentences.
+        - **Grammar is not important** .
+        - Limit the output to **100 words**.
+        - The output must include enough **context** from chat history for a browser agent to understand and take appropriate action.
+        Your goal is to provide a **compressed, keyword-rich query** that accurately reflects the user's intent.
+    """
+    response = llm2.invoke(prompt)
+    state['askAi_output'] = response.content
     return state
 
 
@@ -109,7 +180,6 @@ def decidingAgent(state: OverallState) -> str:
         1. if the user wants to search something or purchase something or anything which requires the browser to answer then return browser
         2. otherwise return the genral.
         user input is {state['user_input']}
-
         Answer only a single word either browser or general.
         not more than one word.
     """
@@ -118,25 +188,43 @@ def decidingAgent(state: OverallState) -> str:
     if 'browser' in response.lower():
         return "browse_node"
     elif 'general' in response.lower():
-        return "get_messages_node"
+        return "get_messages"
     
     return "undefined"
 
 
 # to write the content based on input
 def writeContent(state: OverallState) -> OverallState:
-    content = f"""
-        You are a helpful prompt engineer. Given a user query.
-        User input is {state['user_input']}
-        Write the best answer based on the Your knowledge.
+    prompt = f"""
+    You are Vacuole, a friendly and knowledgeable ecommerce assistant specialized in helping users discover, compare, and understand products available online, especially budget-friendly options in India. Communicate clearly and concisely using everyday language. Your expertise covers categories including fashion, electronics, home goods, and deals.
+    When interacting with users, provide helpful product suggestions and answer their questions politely and informatively. If you don't know an answer or lack real-time information, courteously advise users to search online. Avoid giving any financial or medical advice. Use emojis sparingly to make your responses more engaging without overwhelming the message. Always maintain a factual tone and avoid sharing personal opinions.
+
+    # Response Guidelines
+    - Be friendly, clear, and concise.
+    - Focus on budget-friendly options in India.
+    - Cover fashion, electronics, home goods, and deals.
+    - Use simple, everyday language.
+    - Avoid providing financial or medical advice.
+    - If uncertain or lacking information, politely recommend searching online.
+    - Use minimal emojis to enhance engagement.
+    - Stay factual and impartial.
+
+    # Output Format
+        Provide responses in natural, conversational text addressing the user's queries or requests following the above guidelines, with minimal and appropriate emoji use where suitable.
+    # User Input is :
+    {state['user_input']}
     """
-    response = llm.invoke(content).content
+    response = llm.invoke(prompt).content
     state['graph_output'] = response
     return state
 
+def stater(state: OverallState) -> OverallState:
+    """This function is used to set the initial state of the graph"""
+    return state
 
 workflow = StateGraph(OverallState)
-workflow.add_node('first_node', askAi)
+workflow.add_node('first_node', stater)
+workflow.add_node('askAi_node', askAi)
 workflow.add_node('get_messages_node', get_messages)
 workflow.add_node('browse_node', browse)
 workflow.add_node('second_node', get_response)
@@ -145,34 +233,30 @@ workflow.add_node('genral_query_answer',writeContent)
 workflow.set_entry_point('first_node')
 workflow.set_finish_point('second_node')
 workflow.add_conditional_edges(
-    "first_node",
+    'first_node',
     decidingAgent,
     {
-        "browse_node": "get_messages_node",
-        "get_messages_node": "genral_query_answer",
+        "browse_node": "askAi_node",
+        "get_messages": "genral_query_answer",
         "undefined":"genral_query_answer"
     }
 )
+workflow.add_edge('askAi_node', 'get_messages_node')
 workflow.add_edge('get_messages_node', 'browse_node')
 workflow.add_edge('browse_node', 'second_node')
-workflow.add_edge('genral_query_answer', 'second_node')
+workflow.add_edge('genral_query_answer', END)
 
 graph = workflow.compile()
 
 async def Communication(total_message: List[Union[HumanMessage,AIMessage]]) -> List[Union[HumanMessage,AIMessage]]:
     initial_state: OverallState = {
         'user_input': total_message,
-        'graph_output': ""
+        'graph_output': "",
+        'browser_output': "",
+        'askAi_output': "",
+        'browser_input': []
     }
     
     final_state = await graph.ainvoke(initial_state)  # ✅ async invoke
-    print(final_state['graph_output'])
+    print("the final answer is :", final_state)
     return final_state['graph_output']
-
-
-# if __name__ == "__main__":
-#     import asyncio
-#     task = "Find me a budget-friendly smartphone under 15000 from flipkart also available on zip/pin code 303108."
-#     result = asyncio.run(Communication(task))
-#     print(result)
-# print(graph)
