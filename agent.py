@@ -10,6 +10,7 @@ from browser_use import ChatOllama,ChatGoogle, Agent, Controller
 from pydantic import BaseModel
 import asyncio
 from browser_use import Agent, BrowserSession
+from telegram import Update
 
 load_dotenv()
 
@@ -25,6 +26,7 @@ class OverallState(TypedDict):
     askAi_output: str
     browser_input: Union[str, List[str]]
     browser_output: str
+    update: Update
 
 
 class BrowserData(BaseModel):
@@ -95,4 +97,5 @@ async def browse(state: OverallState)->OverallState:
     print(".............................................in browser function.............................")
     print(state)
     print("........................................ends .........................")
+    await state['update'].message.reply_text("85% task completed")
     return state

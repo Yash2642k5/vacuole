@@ -9,6 +9,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain.memory import ConversationSummaryBufferMemory
 from langchain_core.messages import HumanMessage,AIMessage
 from typing import TypedDict,List,Union
+from telegram import Update
 
 
 from langchain.chains import LLMChain
@@ -30,6 +31,7 @@ class OverallState(TypedDict):
     askAi_output: str
     browser_input: Union[str, List[str]]
     browser_output: str
+    update: Update
 
 
 llm = ChatGroq(
@@ -55,7 +57,7 @@ llm3 = ChatGroq(
 )
 
 # for making the prompt or deciding the node what we have to do next either browser or Bypass browser
-def get_messages(state: OverallState) -> OverallState:
+async def get_messages(state: OverallState) -> OverallState:
     input_prompt = f"""
         Identify the user's intent based on the given query in a structured format, and 
         
@@ -98,10 +100,11 @@ def get_messages(state: OverallState) -> OverallState:
     """
     messages = llm.invoke(input_prompt)
     state['browser_input'] = messages.content
+    await state['update'].message.reply_text("35% task completed")
     return state
 
 
-def get_response(state: OverallState) -> OverallState:
+async def get_response(state: OverallState) -> OverallState:
     input_prompt = f"""
     You are Vacuole, a friendly and knowledge-able ecommerce assistant specialized in helping users discover, compare, and understand products available online, especially budget-friendly options in India. 
     Communicate clearly and concisely using everyday language. Your expertise covers categories including fashion, electronics, home goods, and deals.
@@ -150,10 +153,11 @@ def get_response(state: OverallState) -> OverallState:
     # print("in the get_response node of the graph the final updates are ....................")
     # print(state)
     # print("..................................................")
+    await state['update'].message.reply_text("95% task completed")
     return state
 
 
-def askAi(state: OverallState) -> OverallState:
+async def askAi(state: OverallState) -> OverallState:
     prompt = f"""
         You are an intelligent assistant agent. Your task is to analyze the user's recent and past messages.
         Based on the full chat history provided in: {state['user_input']}, regenerate the user's last question in a condensed form.
@@ -165,11 +169,12 @@ def askAi(state: OverallState) -> OverallState:
     """
     response = llm2.invoke(prompt)
     state['askAi_output'] = response.content
+    await state['update'].message.reply_text("20% task completed")
     return state
 
 
 # to decide what to do next based on user input
-def decidingAgent(state: OverallState) -> str:
+async def decidingAgent(state: OverallState) -> str:
     # if the user input contains any thing releted to the browser then only we will make call to browse function
     # print("..................................................")
     # print("Latest state user_input", state['user_input'][-1])
@@ -186,15 +191,16 @@ def decidingAgent(state: OverallState) -> str:
     response = llm3.invoke(comptlete_input).content
     print("deciding node",response)
     if 'browser' in response.lower():
+        await state['update'].message.reply_text("10% task completed")
         return "browse_node"
     elif 'general' in response.lower():
+        await state['update'].message.reply_text("50% task completed")
         return "get_messages"
-    
     return "undefined"
 
 
 # to write the content based on input
-def writeContent(state: OverallState) -> OverallState:
+async def writeContent(state: OverallState) -> OverallState:
     prompt = f"""
     You are Vacuole, a friendly and knowledgeable ecommerce assistant specialized in helping users discover, compare, and understand products available online, especially budget-friendly options in India. Communicate clearly and concisely using everyday language. Your expertise covers categories including fashion, electronics, home goods, and deals.
     When interacting with users, provide helpful product suggestions and answer their questions politely and informatively. If you don't know an answer or lack real-time information, courteously advise users to search online. Avoid giving any financial or medical advice. Use emojis sparingly to make your responses more engaging without overwhelming the message. Always maintain a factual tone and avoid sharing personal opinions.
@@ -216,6 +222,7 @@ def writeContent(state: OverallState) -> OverallState:
     """
     response = llm.invoke(prompt).content
     state['graph_output'] = response
+    await state['update'].message.reply_text("90% task completed")
     return state
 
 def stater(state: OverallState) -> OverallState:
@@ -248,13 +255,14 @@ workflow.add_edge('genral_query_answer', END)
 
 graph = workflow.compile()
 
-async def Communication(total_message: List[Union[HumanMessage,AIMessage]]) -> List[Union[HumanMessage,AIMessage]]:
+async def Communication(update: Update, total_message: List[Union[HumanMessage,AIMessage]]) -> List[Union[HumanMessage,AIMessage]]:
     initial_state: OverallState = {
         'user_input': total_message,
         'graph_output': "",
         'browser_output': "",
         'askAi_output': "",
-        'browser_input': []
+        'browser_input': [],
+        'update': update
     }
     
     final_state = await graph.ainvoke(initial_state)  # ✅ async invoke

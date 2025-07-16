@@ -39,7 +39,7 @@ from langchain_core.messages import HumanMessage,AIMessage
 from collections import defaultdict
 conversation_history = defaultdict(list)
 import asyncio
-def handle_response (text: str, user_id:str) -> str:
+def handle_response (update: Update, text: str, user_id:str) -> str:
     """handle responses
 
     Args:
@@ -50,7 +50,7 @@ def handle_response (text: str, user_id:str) -> str:
     """
     # response = askAi(text)
     conversation_history[user_id].append(HumanMessage(content=text))
-    response = asyncio.run(Communication(conversation_history[user_id]))
+    response = asyncio.run(Communication(update, conversation_history[user_id]))
     conversation_history[user_id].append(AIMessage(content=response))
     # response = "Hello my name is vacuole and i am here for your help .........."
     # print('Our Response: ', response)
@@ -76,12 +76,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if TELEGRAM_BOT_USERNAME in text:
             new_text: str = text.replace(TELEGRAM_BOT_USERNAME, '').strip()
             # conversation_history.append(new_text)
-            response: str = handle_response(new_text,user_id)
+            response: str = handle_response(update, new_text,user_id)
             # conversation_history.append(response)
         else:
             return
     else:
-        response: str = handle_response(text,user_id)
+        response: str = handle_response(update,text,user_id)
     
     #print('Bot: ', response)
     
