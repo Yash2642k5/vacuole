@@ -59,19 +59,14 @@ llm3 = ChatGroq(
 async def get_messages(state: OverallState) -> OverallState:
     input_prompt = f"""
         Identify the user's intent based on the given query in a structured format, and 
-        
-        Very important thing is that, dont forget to mention your output that- give answer in text only, dont make any files to give answer and if make a bullet point list in text if required. avoid irrelevent data and focus on only giving what was asked and if website is not specified go to www.flipkart.com
-
-        If the user intends to purchase a product:
-        - Extract and output the website name.
-        - List all relevant product details such as product name, specifications, quantity, and price if provided.
+        Very important thing is that, dont forget to mention your output that- give answer in text only, dont make any files to give answer and if make a bullet point list in text if required. avoid irrelevent data and focus on only giving what was asked
 
         Provide the output concisely without any commentary or additional explanations. Only include details necessary to assist an automated browser tool in executing the purchase action.
 
         # Steps
-        1. Analyze the user query to detect purchase intent if not mentioned then open Flipkart.
-        2. If purchase intent is confirmed, extract the website name.
-        3. Extract product details: product name, specifications, quantity, and price (if any).
+        1. If purchase intent is confirmed, extract the website name if not mentioned then open "Flipkart.com" .
+        2. Now identify the product name provided by user and search on the search-bar
+        3. Extract product details: product name, specifications, quantity,product-link, and price (if any).
         4. Format the extracted information clearly and concisely.
         5. if the user ask you to check any product availability then check the availability of the product on the website and if available then give the product details and if not available search for similar result which are available.
 
@@ -88,8 +83,8 @@ async def get_messages(state: OverallState) -> OverallState:
 
         Input: "Find me a gaming laptop with 16GB RAM and 1TB SSD on Amazon."
         Output:
-        1. first Search Amazon.com
-        2. open Amazon.com
+        1. first Search Amazon.in
+        2. open Amazon.in
         3. search for "gaming laptop with 16GB RAM and 1TB SSD" in the search bar
         4. click on the first product 
         5. extract the product details
@@ -97,7 +92,7 @@ async def get_messages(state: OverallState) -> OverallState:
         and User input is 
         {state['askAi_output']}
     """
-    messages = llm.invoke(input_prompt)
+    messages = llm2.invoke(input_prompt)
     state['browser_input'] = messages.content
     await state['update'].message.reply_text("35% task completed")
     return state
@@ -124,7 +119,7 @@ async def get_response(state: OverallState) -> OverallState:
     Provide responses in natural, conversational text addressing the user's queries or requests following the above guidelines, with minimal and appropriate emoji use where suitable.
 
 
-    Given the following browser-use output from the user and don't mention that you are getting any input always talk like you are the one doing all the work in order to create an abstraction for the user:\n
+    Given the following automatic-browser output(answer based on the user query) from the user and don't mention that you are getting any input always talk like you are the one doing all the work in order to create an abstraction for the user:\n
         {state['browser_output']}
 
     Identify if the browser output includes details about a product, such as a product link, description, price, or any other relevant data.
@@ -145,13 +140,11 @@ async def get_response(state: OverallState) -> OverallState:
     response = llm2.invoke(input_prompt)
     state['graph_output'] = response.content
     print("..................................................")
-    print("respone is: ", response)
-    print("..................................................")
     print("graph_output is: ", state["graph_output"])
     print("..................................................")
-    # print("in the get_response node of the graph the final updates are ....................")
-    # print(state)
-    # print("..................................................")
+    print("in the get_response node of the graph the final updates are ....................")
+    print(state)
+    print("..................................................")
     await state['update'].message.reply_text("95% task completed")
     return state
 
@@ -183,7 +176,7 @@ async def decidingAgent(state: OverallState) -> str:
         what is user intent 
         1. if the user wants to search something or purchase something or anything which requires the browser to answer then return browser
         2. otherwise return the genral.
-        user input is {state['user_input'][-1]}
+        user input is {state['user_input'][0]}
         Answer only a single word either browser or general.
         not more than one word.
     """
@@ -265,5 +258,5 @@ async def Communication(update: Update, total_message: List[Union[HumanMessage,A
     }
     
     final_state = await graph.ainvoke(initial_state)  # ✅ async invoke
-    print("the final answer is :", final_state)
+    # print("the final answer is :", final_state)
     return final_state['graph_output']

@@ -124,11 +124,12 @@ def handle_response (update: Update, text: str, user_id:str) -> str:
         str: _description_
     """
     # response = askAi(text)
-    conversation_history[user_id].append(HumanMessage(content=text))
-    response = asyncio.run(Communication(update, conversation_history[user_id]))
-    conversation_history[user_id].append(AIMessage(content=response))
-    # response = "Hello my name is vacuole and i am here for your help .........."
-    # print('Our Response: ', response)
+    # conversation_history[user_id].append(HumanMessage(content=text))
+    append_chat_message(user_id,'user',text)
+    total_message = get_chat_history(user_id=user_id)
+    chat_history = convert_to_chat_messages(total_message)
+    response = asyncio.run(Communication(update, chat_history))
+    append_chat_message(user_id,'assistant',response)
     return response
 
 

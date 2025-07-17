@@ -44,12 +44,11 @@ controller = Controller(output_model=AllData)
 # If no executable_path provided, uses Playwright/Patchright's built-in Chromium
 browser_session = BrowserSession(
     # Path to a specific Chromium-based executable (optional)
-    executable_path='C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',  # macOS
-
+    executable_path=None,  # macOS
     # Use a specific data directory on disk (optional, set to None for incognito)
-    user_data_dir='~/.config/browseruse/profiles/default',   # this is the default
+    user_data_dir=None,   # this is the default
     # ... any other BrowserProfile or playwright launch_persistnet_context config...
-    # headless=False,
+    headless=True,
 )
 
 llm = ChatGoogle(
@@ -69,9 +68,6 @@ llm2 = ChatGroq(
 )
 
 async def browse(state: OverallState)->OverallState:
-    # initial_action = [
-    #     {'open-tab' : {'url': 'https://www.flipkart.com'}}
-    # ]
     agent = Agent(
         task=state['browser_input'],
         llm=llm,
@@ -90,13 +86,5 @@ async def browse(state: OverallState)->OverallState:
     )
 
     state['browser_output'] = summary
-    print("summary type is", type(summary))
-    print("summary is", summary)
-    print("summary ends here")
-    print("state output is",state["browser_output"])
-    print("state output ends here")
-    print(".............................................in browser function.............................")
-    print(state)
-    print("........................................ends .........................")
     await state['update'].message.reply_text("85% task completed")
     return state
