@@ -175,15 +175,17 @@ async def askAi(state: OverallState) -> OverallState:
 # to decide what to do next based on user input
 async def decidingAgent(state: OverallState) -> str:
     # if the user input contains any thing releted to the browser then only we will make call to browse function
-    # print("..................................................")
-    # print("Latest state user_input", state['user_input'][-1])
-    # print("..................................................")
+    print("..................................................")
+    print("Latest state user_input", state['user_input'][0])
+    print("..................................................")
+    print("whole state user_input", state['user_input'])
+    print("..................................................")
     comptlete_input = f"""
         You are a helpful prompt engineer. Given a user query, determine the user's intent in a structured format.
         what is user intent 
         1. if the user wants to search something or purchase something or anything which requires the browser to answer then return browser
         2. otherwise return the genral.
-        user input is {state['user_input'][-1]}
+        user input is {state['user_input'][0]}
         Answer only a single word either browser or general.
         not more than one word.
     """

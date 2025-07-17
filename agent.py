@@ -49,7 +49,7 @@ browser_session = BrowserSession(
     # Use a specific data directory on disk (optional, set to None for incognito)
     user_data_dir='~/.config/browseruse/profiles/default',   # this is the default
     # ... any other BrowserProfile or playwright launch_persistnet_context config...
-    # headless=False,
+    headless=False,
 )
 
 llm = ChatGoogle(
