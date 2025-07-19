@@ -21,6 +21,7 @@ os.environ.pop("SSL_CERT_FILE", None)
 os.environ["SSL_CERT_FILE"] = certifi.where()
 ssl._create_default_https_context = ssl.create_default_context(cafile=certifi.where())
 
+# Ovarall Schema of Graph state
 class OverallState(TypedDict):
     user_input: Union[HumanMessage, AIMessage]
     graph_output: str
@@ -29,13 +30,14 @@ class OverallState(TypedDict):
     browser_output: str
     update: Update
 
-
+# Browser response Schema
 class BrowserData(BaseModel):
     url: str
     specifications: str
     price: str
     product_name: str
 
+# List of browser response
 class AllData(BaseModel):
     browser_data: List[BrowserData]
 
@@ -67,6 +69,7 @@ llm2 = ChatGroq(
     api_key=GROQ_API_KEY,
 )
 
+# Graph Node 
 async def browse(state: OverallState)->OverallState:
     agent = Agent(
         task=state['browser_input'],
@@ -75,10 +78,11 @@ async def browse(state: OverallState)->OverallState:
         controller=controller
     )
     result = await agent.run()
+    print("................................Browser output.......................................")
+    print(result)
+    print(".......................................End................................")
     data = result.final_result()
-    parsed: AllData = AllData.model_validate_json(data)
-    # print(data)
-    
+    parsed: AllData = AllData.model_validate_json(data)    
     
     summary = "\n".join(
         f"- {item.product_name} costs {item.price}, has specifications '{item.specifications}' at {item.url}."

@@ -8,7 +8,6 @@ __pycache__/
 # Ignore environment files
 .env
 
-
 # ignore Git files
 .git/
 .gitignore

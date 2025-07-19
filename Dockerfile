@@ -9,7 +9,6 @@ COPY . .
 # Set working directory to the app folder
 WORKDIR /
 
-
 # Install dependencies if needed
 RUN apt-get update && apt-get install -y \
     wget \
