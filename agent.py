@@ -16,26 +16,29 @@ from telegram import Update
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-SECOND_GEMINI_API_KEY = os.getenv("SECOND_GEMINI_API_KEY")
+SECOND_GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 os.environ.pop("SSL_CERT_FILE", None)
 os.environ["SSL_CERT_FILE"] = certifi.where()
 ssl._create_default_https_context = ssl.create_default_context(cafile=certifi.where())
 
+# Ovarall Schema of Graph state
 class OverallState(TypedDict):
-    user_input: Union[HumanMessage, AIMessage]
+    history: Union[HumanMessage, AIMessage]
+    user_input: str
     graph_output: str
     askAi_output: str
     browser_input: Union[str, List[str]]
     browser_output: str
     update: Update
 
-
+# Browser response Schema
 class BrowserData(BaseModel):
     url: str
     specifications: str
     price: str
     product_name: str
 
+# List of browser response
 class AllData(BaseModel):
     browser_data: List[BrowserData]
 
@@ -44,12 +47,11 @@ controller = Controller(output_model=AllData)
 # If no executable_path provided, uses Playwright/Patchright's built-in Chromium
 browser_session = BrowserSession(
     # Path to a specific Chromium-based executable (optional)
-    executable_path='C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',  # macOS
-
+    executable_path=None,  # macOS
     # Use a specific data directory on disk (optional, set to None for incognito)
-    user_data_dir='~/.config/browseruse/profiles/default',   # this is the default
+    user_data_dir=None,   # this is the default
     # ... any other BrowserProfile or playwright launch_persistnet_context config...
-    headless=False,
+    headless=True,
 )
 
 llm = ChatGoogle(
@@ -68,10 +70,8 @@ llm2 = ChatGroq(
     api_key=GROQ_API_KEY,
 )
 
+# Graph Node 
 async def browse(state: OverallState)->OverallState:
-    # initial_action = [
-    #     {'open-tab' : {'url': 'https://www.flipkart.com'}}
-    # ]
     agent = Agent(
         task=state['browser_input'],
         llm=llm,
@@ -79,10 +79,11 @@ async def browse(state: OverallState)->OverallState:
         controller=controller
     )
     result = await agent.run()
+    # print("................................Browser output.......................................")
+    # print(result)
+    # print(".......................................End................................")
     data = result.final_result()
-    parsed: AllData = AllData.model_validate_json(data)
-    # print(data)
-    
+    parsed: AllData = AllData.model_validate_json(data)    
     
     summary = "\n".join(
         f"- {item.product_name} costs {item.price}, has specifications '{item.specifications}' at {item.url}."
@@ -90,13 +91,5 @@ async def browse(state: OverallState)->OverallState:
     )
 
     state['browser_output'] = summary
-    print("summary type is", type(summary))
-    print("summary is", summary)
-    print("summary ends here")
-    print("state output is",state["browser_output"])
-    print("state output ends here")
-    print(".............................................in browser function.............................")
-    print(state)
-    print("........................................ends .........................")
     await state['update'].message.reply_text("85% task completed")
     return state

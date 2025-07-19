@@ -1,4 +1,6 @@
 import os
+import asyncio
+import nest_asyncio
 from typing import Final
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -6,18 +8,24 @@ from dotenv import load_dotenv
 from database import getDataBase
 from datetime import datetime, timezone
 from firebase_admin import firestore
-
-db = firestore.client()
-import nest_asyncio
-nest_asyncio.apply()
+from CommunicationAgent import Communication
+from langchain_core.messages import HumanMessage,AIMessage
+from collections import defaultdict
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 
 load_dotenv()
+
+db = firestore.client()
+nest_asyncio.apply()
+
 TELEGRAM_BOT_TOKEN: Final = os.getenv("TOKEN")
 TELEGRAM_BOT_USERNAME: Final = os.getenv("BOT_USERNAME")
 API_KEY = os.getenv("GEMINI_API_KEY")
 
 db = getDataBase()
 
+
+# Telegram Start
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Sends a greeting message when the /start command is issued.
@@ -31,6 +39,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+# During Error Help Command
 async def help_command (update: Update, context: ContextTypes.DEFAULT_TYPE):
     """sends a message to user when confused
 
@@ -41,8 +50,7 @@ async def help_command (update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Give me a description of the product you want to buy to get started.")
 
 
-
-
+# To append Message into the database
 def append_chat_message(user_id: str, role: str, content: str):
     user_ref = db.collection('users').document(str(user_id))
 
@@ -62,7 +70,7 @@ def append_chat_message(user_id: str, role: str, content: str):
         print(f"Error appending message for user '{user_id}': {e}")
 
 
-
+# To get/retrieve the chat_message from the database
 def get_chat_history(user_id: str):
     user_ref = db.collection('users').document(str(user_id))
 
@@ -91,7 +99,7 @@ def get_chat_history(user_id: str):
         return []
 
 
-
+# To convet the message into the langChain/Langgraph specific
 def convert_to_chat_messages(chat_history: list):
     converted_messages = []
 
@@ -109,11 +117,7 @@ def convert_to_chat_messages(chat_history: list):
     return converted_messages
 
 
-from CommunicationAgent import Communication
-from langchain_core.messages import HumanMessage,AIMessage
-from collections import defaultdict
-conversation_history = defaultdict(list)
-import asyncio
+# To handle the response for the telegram
 def handle_response (update: Update, text: str, user_id:str) -> str:
     """handle responses
 
@@ -124,19 +128,18 @@ def handle_response (update: Update, text: str, user_id:str) -> str:
         str: _description_
     """
     # response = askAi(text)
-    append_chat_message(user_id, "user", text)
-    conversation_history = get_chat_history(user_id)
-    user_history = convert_to_chat_messages(conversation_history)
-    # conversation_history[user_id].append(HumanMessage(content=text))
-    response = asyncio.run(Communication(update, user_history))
-    
-    append_chat_message(user_id, "assistant", response)
-    # conversation_history[user_id].append(AIMessage(content=response))
+    # append_chat_message(user_id,'user',text)
+    total_message = get_chat_history(user_id=user_id)
+    chat_history = convert_to_chat_messages(total_message)
+    response = asyncio.run(Communication(text, update, chat_history))
+    append_chat_message(user_id,'user',text)
+    append_chat_message(user_id,'assistant',response)
     # response = "Hello my name is vacuole and i am here for your help .........."
     # print('Our Response: ', response)
     return response
 
 
+# to handle the response
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """handling messages
 
@@ -149,8 +152,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id: str = update.effective_user.id 
     # username: str = update.effective_user.username
     
-    print(f'user ({update.message.chat.id}) in {message_type}: "{text}"')
-    print("in the handle_message function =>",user_id)
+    # print(f'user ({update.message.chat.id}) in {message_type}: "{text}"')
+    # print("in the handle_message function =>",user_id)
     
     if message_type == 'group':
         if TELEGRAM_BOT_USERNAME in text:
@@ -163,7 +166,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         response: str = handle_response(update,text,user_id)
     
-    #print('Bot: ', response)
     
     await update.message.reply_text(response)
 
@@ -173,7 +175,6 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
 
 
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
 print('starting bot....')
 app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
