@@ -1,0 +1,20 @@
+# Ignore Python venv and cache
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore environment files
+.env
+
+# ignore Git files
+.git/
+.gitignore
+
+# ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and other
+*.log
