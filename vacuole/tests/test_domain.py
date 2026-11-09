@@ -1,6 +1,12 @@
 import unittest
 
-from vacuole.domain.ranking import button_options, dedupe, sort_products, within_price_range
+from vacuole.domain.ranking import (
+    button_options,
+    dedupe,
+    exclude_accessories,
+    sort_products,
+    within_price_range,
+)
 from vacuole.tests.fakes import product
 
 
@@ -23,6 +29,22 @@ class RankingTests(unittest.TestCase):
 
     def test_buttons_come_from_the_registry(self):
         self.assertEqual({o.key for o in button_options()}, {"price_asc", "rating"})
+
+
+class AccessoryFilterTests(unittest.TestCase):
+    def test_accessories_dropped_for_a_phone_query(self):
+        items = [product("Galaxy S24 5G 256GB", 60000), product("Galaxy S24 Back Cover", 299),
+                 product("Fast Charger 25W", 799)]
+        kept = exclude_accessories(items, "samsung phone")
+        self.assertEqual([p.title for p in kept], ["Galaxy S24 5G 256GB"])
+
+    def test_accessories_kept_when_asked_for(self):
+        items = [product("Galaxy S24 Back Cover", 299)]
+        self.assertEqual(len(exclude_accessories(items, "phone case")), 1)
+
+    def test_never_filters_down_to_nothing(self):
+        items = [product("Galaxy S24 Back Cover", 299)]
+        self.assertEqual(len(exclude_accessories(items, "samsung phone")), 1)
 
 
 class DedupeTests(unittest.TestCase):

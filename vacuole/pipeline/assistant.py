@@ -26,7 +26,12 @@ from vacuole.domain.models import (
     UserLocation,
 )
 from vacuole.pipeline.planner import QueryPlanner
-from vacuole.pipeline.responders import ChatResponder, ResultNarrator, no_results_message
+from vacuole.pipeline.responders import (
+    OFF_TOPIC_TEXT,
+    ChatResponder,
+    ResultNarrator,
+    no_results_message,
+)
 from vacuole.ports import ProductSearch, ProgressReporter
 
 
@@ -94,19 +99,32 @@ class ShoppingAssistant:
         graph.add_node("search", self._run_search)
         graph.add_node("present", self._present)
         graph.add_node("chat", self._chat)
+        graph.add_node("decline", self._decline)
 
         graph.set_entry_point("understand")
         graph.add_conditional_edges(
-            "understand", self._route, {"search": "search", "chat": "chat"}
+            "understand",
+            self._route,
+            {"search": "search", "chat": "chat", "decline": "decline"},
         )
         graph.add_edge("search", "present")
         graph.add_edge("present", END)
         graph.add_edge("chat", END)
+        graph.add_edge("decline", END)
         return graph.compile()
 
     @staticmethod
     def _route(state: GraphState) -> str:
-        return "search" if state.get("intent") == "search" else "chat"
+        intent = state.get("intent")
+        if intent == "search":
+            return "search"
+        if intent == "off_topic":
+            return "decline"
+        return "chat"
+
+    async def _decline(self, state: GraphState) -> dict[str, Any]:
+        """Out-of-scope requests get a fixed reply; no model call can answer them."""
+        return {"reply": AssistantReply(kind="text", text=OFF_TOPIC_TEXT)}
 
     @staticmethod
     async def _progress(state: GraphState, key: str, detail: str = "") -> None:

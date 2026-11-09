@@ -137,15 +137,15 @@ def main() -> None:
     except Exception as exc:
         raise SystemExit(f"Could not start: {exc}") from exc
 
-    if settings.webhook_url:
-        print(f"starting bot on webhook {settings.webhook_url}")
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=settings.port,
-            url_path=settings.telegram_token,
-            webhook_url=f"{settings.webhook_url.rstrip('/')}/{settings.telegram_token}",
-        )
-    else:
-        # No tunnel configured: long polling works anywhere, including locally.
-        print("starting bot on long polling (set WEBHOOK_URL to use a webhook)")
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # if settings.webhook_url:
+    #     print(f"starting bot on webhook {settings.webhook_url}")
+    #     application.run_webhook(
+    #         listen="0.0.0.0",
+    #         port=settings.port,
+    #         url_path=settings.telegram_token,
+    #         webhook_url=f"{settings.webhook_url.rstrip('/')}/{settings.telegram_token}",
+    #     )
+    # else:
+    # No tunnel configured: long polling works anywhere, including locally.
+    print("starting bot on long polling (set WEBHOOK_URL to use a webhook)")
+    application.run_polling(allowed_updates=Update.ALL_TYPES)

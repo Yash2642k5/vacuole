@@ -6,7 +6,12 @@ import asyncio
 from typing import Sequence
 
 from vacuole.domain.models import Product, SearchOutcome, SearchPlan, UserLocation
-from vacuole.domain.ranking import dedupe, sort_products, within_price_range
+from vacuole.domain.ranking import (
+    dedupe,
+    exclude_accessories,
+    sort_products,
+    within_price_range,
+)
 from vacuole.ports import SearchEngine
 
 
@@ -42,7 +47,8 @@ class ProductSearchService:
                 found.extend(result)
 
         # Price bounds are enforced locally too: not every engine has a price filter.
-        merged = within_price_range(dedupe(found), plan.min_price, plan.max_price)
+        relevant = exclude_accessories(dedupe(found), plan.query)
+        merged = within_price_range(relevant, plan.min_price, plan.max_price)
         ranked = sort_products(merged, plan.sort)
 
         return SearchOutcome(

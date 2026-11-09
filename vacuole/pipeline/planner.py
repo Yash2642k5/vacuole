@@ -100,6 +100,21 @@ def normalise_sort(value: Any) -> Sort:
     return "relevance"
 
 
+MAX_INPUT_CHARS = 500
+
+_INJECTION_RE = re.compile(
+    r"ignore (all |any |the )?(previous|prior|above|earlier)|disregard (the |your )?(instructions|rules)"
+    r"|system prompt|developer mode|jailbreak|you are now|act as (?!a shopper)|pretend (to be|you)"
+    r"|reveal (your )?(prompt|instructions)",
+    re.IGNORECASE,
+)
+
+
+def is_blocked_input(text: str) -> bool:
+    """Cheap pre-model guard: oversized messages and obvious prompt-injection phrases."""
+    return len(text) > MAX_INPUT_CHARS or bool(_INJECTION_RE.search(text))
+
+
 def looks_like_search(text: str) -> bool:
     """Keyword fallback for when the planner call fails outright."""
     lowered = text.lower()
@@ -108,7 +123,7 @@ def looks_like_search(text: str) -> bool:
 
 @dataclass
 class PlannedRequest:
-    intent: str          # "search" or "chat"
+    intent: str          # "search", "chat" or "off_topic"
     plan: SearchPlan
 
 
@@ -122,6 +137,9 @@ class QueryPlanner:
     async def plan(
         self, user_input: str, history: Sequence[ChatTurn], location: UserLocation
     ) -> PlannedRequest:
+        if is_blocked_input(user_input or ""):
+            return PlannedRequest(intent="off_topic", plan=SearchPlan(query=""))
+
         prompt = UNDERSTAND_PROMPT.format(
             history=render_history(history, self._history_limit),
             user_input=user_input,
@@ -137,7 +155,13 @@ class QueryPlanner:
         data = parse_plan_json(raw)
         user_input = (user_input or "").strip()
 
-        intent = "search" if str(data.get("intent", "")).lower().startswith("search") else "chat"
+        raw_intent = str(data.get("intent", "")).lower()
+        if raw_intent.startswith("search"):
+            intent = "search"
+        elif raw_intent.startswith("off"):
+            intent = "off_topic"
+        else:
+            intent = "chat"
         query = str(data.get("query") or "").strip()
 
         if intent == "search" and not query:

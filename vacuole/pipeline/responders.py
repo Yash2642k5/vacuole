@@ -10,6 +10,10 @@ from vacuole.pipeline.prompts import CHAT_PROMPT, NOTE_PROMPT
 from vacuole.ports import TextModel
 
 CHAT_FAILURE_TEXT = "I'm having trouble thinking right now — could you say that again?"
+OFF_TOPIC_TEXT = (
+    "I can only help with shopping and product questions. Tell me what you're looking "
+    "for — e.g. “best earbuds under 2000” — and I'll find and compare options."
+)
 
 
 class ResultNarrator:

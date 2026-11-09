@@ -6,6 +6,7 @@ here; the aggregator, the planner and the Telegram buttons all read the registry
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Callable, Iterable
 
@@ -121,6 +122,28 @@ def dedupe(products: Iterable[Product]) -> list[Product]:
         merged.append(winner)
 
     return merged
+
+
+_ACCESSORY_TERMS = (
+    r"cases?", r"covers?", r"back covers?", r"tempered glass", r"screen (?:protectors?|guards?)",
+    r"protectors?", r"skins?", r"pouch(?:es)?", r"holders?", r"stands?", r"straps?",
+    r"cables?", r"chargers?", r"adapters?", r"mounts?", r"stickers?", r"lens guards?",
+    r"sleeves?", r"bumpers?", r"popsockets?", r"selfie sticks?", r"tripods?",
+)
+_ACCESSORY_RE = re.compile(r"\b(?:" + "|".join(_ACCESSORY_TERMS) + r")\b", re.IGNORECASE)
+
+
+def exclude_accessories(products: Iterable[Product], query: str) -> list[Product]:
+    """Drop cases, chargers and the like unless the user's query asked for them.
+
+    Shopping engines match "phone" against "phone case". If filtering would leave nothing
+    (the query really is for an accessory we don't recognise), the original list is kept.
+    """
+    items = list(products)
+    if _ACCESSORY_RE.search(query or ""):
+        return items
+    kept = [p for p in items if not _ACCESSORY_RE.search(p.title)]
+    return kept or items
 
 
 def within_price_range(
