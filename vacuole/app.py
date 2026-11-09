@@ -48,6 +48,9 @@ def build_assistant(settings: Settings, serp: SerpApiClient) -> ShoppingAssistan
         ChatGroq(
             model=settings.fast_model,
             temperature=0,
+            # Planner/narrator replies are tiny; Groq's free tier rejects requests whose
+            # expected output exceeds the per-minute output-token limit (1000 OTPM here).
+            max_tokens=settings.fast_max_tokens,
             max_retries=2,
             api_key=settings.groq_api_key,
         )

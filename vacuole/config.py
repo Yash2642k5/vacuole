@@ -52,6 +52,7 @@ class Settings:
     # what the key can currently reach.
     fast_model: str = "qwen/qwen3.8-27b"
     chat_model: str = "openai/gpt-oss-120b"
+    fast_max_tokens: int = 700
 
     serpapi_api_key: str = ""
     firebase_credentials: dict[str, Any] = field(default_factory=dict, repr=False)
@@ -75,6 +76,7 @@ class Settings:
             groq_chat_api_key=_env("GROQ2_API_KEY") or groq_key,
             fast_model=_env("GROQ_FAST_MODEL", cls.fast_model),
             chat_model=_env("GROQ_CHAT_MODEL", cls.chat_model),
+            fast_max_tokens=int(_env("GROQ_FAST_MAX_TOKENS", str(cls.fast_max_tokens))),
             serpapi_api_key=_env("SERPAPI_API_KEY") or _env("SERP_API_KEY"),
             firebase_credentials=_firebase_credentials(),
         )
